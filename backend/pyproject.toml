@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.135.1",
+    "loguru>=0.7.3",
+    "motor>=3.7.1",
     "pymongo>=4.16.0",
     "python-dotenv>=1.2.2",
     "uvicorn>=0.41.0",

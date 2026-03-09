@@ -2,7 +2,7 @@ import os
 import tempfile
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Annotated
 from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form
 from loguru import logger
 from bson import ObjectId
@@ -15,6 +15,10 @@ from app.models.document import Document
 from app.config import settings
 
 router = APIRouter()
+
+@router.post("/test-upload")
+async def test_upload(files: List[UploadFile] = File(...)):
+    return {"count": len(files)}
 
 @router.post("/", response_model=Equipment, status_code=status.HTTP_201_CREATED)
 async def create_equipment(equipment: Equipment):
@@ -58,24 +62,6 @@ async def get_equipment():
             item_dict['_id'] = str(item_dict['_id'])
         result.append(Equipment(**item_dict))
     return result
-
-
-@router.get("/{equipment_id}", response_model=Equipment, status_code=status.HTTP_200_OK)
-async def get_one_equipment(equipment_id: str):
-    """Get an equipment by ID"""
-    db = get_database()
-    equipment = await db.equipment.find_one({"_id": ObjectId(equipment_id)})
-    if not equipment:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Equipment not found"
-        )
-    equipment_dict = dict(equipment)
-    if '_id' in equipment_dict and isinstance(equipment_dict['_id'], ObjectId):
-        equipment_dict['_id'] = str(equipment_dict['_id'])
-    return Equipment(**equipment_dict)
-
-
 
 @router.post("/{equipment_id}/documents", status_code=status.HTTP_201_CREATED)
 async def upload_equipment_documents(
@@ -310,3 +296,19 @@ async def list_equipment_documents(equipment_id: str):
         serialized_documents.append(doc_dict)
     
     return {"documents": serialized_documents, "count": len(serialized_documents)}
+
+
+@router.get("/{equipment_id}", response_model=Equipment, status_code=status.HTTP_200_OK)
+async def get_one_equipment(equipment_id: str):
+    """Get an equipment by ID"""
+    db = get_database()
+    equipment = await db.equipment.find_one({"_id": ObjectId(equipment_id)})
+    if not equipment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Equipment not found"
+        )
+    equipment_dict = dict(equipment)
+    if '_id' in equipment_dict and isinstance(equipment_dict['_id'], ObjectId):
+        equipment_dict['_id'] = str(equipment_dict['_id'])
+    return Equipment(**equipment_dict)

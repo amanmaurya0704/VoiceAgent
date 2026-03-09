@@ -1,7 +1,11 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings,SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file='.env',
+        env_file_encoding='utf-8'
+    )
     # MongoDB Settings
     MONGO_URL: str
     DB_NAME: str = "live_db"
@@ -25,9 +29,7 @@ class Settings(BaseSettings):
     #Hard Coded
     USER_ID: str = "mvp_user"
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    
 
 
 settings = Settings()

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel,ConfigDict
 from typing import Optional
 from bson import ObjectId
 from datetime import datetime
@@ -17,10 +17,11 @@ class Document(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     
-    class Config:
-        populate_by_name = True
-        arbitrary_types_allowed = True
+    model_config =  ConfigDict(
+        populate_by_name = True,
+        arbitrary_types_allowed = True,
         json_encoders = {
             ObjectId: str,
             datetime: lambda v: v.isoformat()
         }
+    )

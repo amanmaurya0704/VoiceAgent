@@ -44,7 +44,7 @@ export default function RealTimeChatPanel({
   useEffect(() => {
     const loadEquipment = async () => {
       try {
-        const response = await api.get("/equipment/");
+        const response = await api.get("api/equipment/");
         // Ensure response.data is an array
         const data = Array.isArray(response.data) ? response.data : [];
         setEquipmentList(data);
@@ -133,7 +133,7 @@ export default function RealTimeChatPanel({
       }
     }
 
-    const endpoint = import.meta.env.VITE_PIPECAT_ENDPOINT || "/stream/connect";
+    const endpoint = import.meta.env.VITE_PIPECAT_ENDPOINT || "/api/stream/connect";
 
     try {
       console.log("Connecting with equipment_id:", eqId);

@@ -3,7 +3,7 @@ import { ChatMessage } from "@/types/ChatMessage";
 import { ChunkMetadata } from "@/types/Chunk";
 import { ServerMessage } from "@/types/ServerMessage";
 import { getTextFromPayload, getId } from "@/utils/chat";
-import { BotLLMTextData, PipecatMetricsData, RTVIEvent, TranscriptData } from "@pipecat-ai/client-js";
+import { BotLLMTextData, BotOutputData, PipecatMetricsData, RTVIEvent, TranscriptData } from "@pipecat-ai/client-js";
 import { useRTVIClientEvent } from "@pipecat-ai/client-react";
 
 export default function usePipecatChatEvents(
@@ -13,19 +13,20 @@ export default function usePipecatChatEvents(
   const currentStreamingBotMessageIdRef = useRef<string | null>(null);
   const pendingCitationsRef = useRef<ChunkMetadata[]>([]);
 
+  const findLastBotMessageIndex = (messages: ChatMessage[]) => {
+    const lastBotMsgIndex = messages.slice().reverse().findIndex((message) => message.role === "bot");
+    return lastBotMsgIndex >= 0 ? messages.length - 1 - lastBotMsgIndex : -1;
+  };
+
   // Bot LLM started
   useRTVIClientEvent(RTVIEvent.BotLlmStarted, () => {
     console.log("BotLlmStarted");
     setMessages((prev) => {
       const next = [...prev];
-      const lastBotMsgIndex = next
-        .slice()
-        .reverse()
-        .findIndex((m) => m.role === "bot");
-      const actualIndex = lastBotMsgIndex >= 0 ? next.length - 1 - lastBotMsgIndex : -1;
+      const lastBotMsgIndex = findLastBotMessageIndex(next);
 
-      if (actualIndex >= 0 && next[actualIndex].streaming) {
-        currentStreamingBotMessageIdRef.current = next[actualIndex].id;
+      if (lastBotMsgIndex >= 0 && next[lastBotMsgIndex].streaming) {
+        currentStreamingBotMessageIdRef.current = next[lastBotMsgIndex].id;
       } else {
         currentStreamingBotMessageIdRef.current = null;
       }
@@ -122,27 +123,6 @@ export default function usePipecatChatEvents(
     });
   });
 
-  // Bot LLM started
-  useRTVIClientEvent(RTVIEvent.BotLlmStarted, () => {
-    console.log("BotLlmStarted");
-    setMessages((prev) => {
-      const next = [...prev];
-      const lastBotMsgIndex = next
-        .slice()
-        .reverse()
-        .findIndex((m) => m.role === "bot");
-      const actualIndex = lastBotMsgIndex >= 0 ? next.length - 1 - lastBotMsgIndex : -1;
-
-      if (actualIndex >= 0 && next[actualIndex].streaming) {
-        currentStreamingBotMessageIdRef.current = next[actualIndex].id;
-      } else {
-        currentStreamingBotMessageIdRef.current = null;
-      }
-
-      return next;
-    });
-  });
-
   // Bot LLM text tokens
   useRTVIClientEvent(RTVIEvent.BotLlmText, (data: BotLLMTextData) => {
     const token = getTextFromPayload(data);
@@ -150,19 +130,15 @@ export default function usePipecatChatEvents(
 
     setMessages((prev) => {
       const next = [...prev];
-      const lastBotMsgIndex = next
-        .slice()
-        .reverse()
-        .findIndex((m) => m.role === "bot");
-      const actualIndex = lastBotMsgIndex >= 0 ? next.length - 1 - lastBotMsgIndex : -1;
+      const lastBotMsgIndex = findLastBotMessageIndex(next);
 
-      if (actualIndex >= 0 && next[actualIndex].streaming) {
-        next[actualIndex] = {
-          ...next[actualIndex],
-          content: next[actualIndex].content + token,
+      if (lastBotMsgIndex >= 0 && next[lastBotMsgIndex].streaming) {
+        next[lastBotMsgIndex] = {
+          ...next[lastBotMsgIndex],
+          content: next[lastBotMsgIndex].content + token,
         };
         if (!currentStreamingBotMessageIdRef.current) {
-          currentStreamingBotMessageIdRef.current = next[actualIndex].id;
+          currentStreamingBotMessageIdRef.current = next[lastBotMsgIndex].id;
         }
       } else {
         const newMessageId = getId();
@@ -184,22 +160,82 @@ export default function usePipecatChatEvents(
     });
   });
 
+  // Fallback for aggregated bot transcripts (some transports emit final text instead of streaming tokens)
+  useRTVIClientEvent(RTVIEvent.BotTranscript, (data: BotLLMTextData) => {
+    const transcript = getTextFromPayload(data).trim();
+    if (!transcript) return;
+
+    setMessages((prev) => {
+      const next = [...prev];
+      const lastBotMsgIndex = findLastBotMessageIndex(next);
+
+      if (lastBotMsgIndex >= 0) {
+        const existing = next[lastBotMsgIndex];
+        next[lastBotMsgIndex] = {
+          ...existing,
+          content: transcript,
+          streaming: false,
+          timestamp: existing.timestamp || new Date(),
+        };
+      } else {
+        next.push({
+          id: getId(),
+          role: "bot",
+          content: transcript,
+          streaming: false,
+          timestamp: new Date(),
+        });
+      }
+
+      return next;
+    });
+  });
+
+  useRTVIClientEvent(RTVIEvent.BotOutput, (data: BotOutputData) => {
+    const output = getTextFromPayload(data).trim();
+    if (!output) return;
+
+    setMessages((prev) => {
+      const next = [...prev];
+      const lastBotMsgIndex = findLastBotMessageIndex(next);
+
+      if (lastBotMsgIndex >= 0) {
+        const existing = next[lastBotMsgIndex];
+        if (existing.content.trim() === output) {
+          return next;
+        }
+        next[lastBotMsgIndex] = {
+          ...existing,
+          content: output,
+          streaming: false,
+          timestamp: existing.timestamp || new Date(),
+        };
+        return next;
+      }
+
+      next.push({
+        id: getId(),
+        role: "bot",
+        content: output,
+        streaming: false,
+        timestamp: new Date(),
+      });
+      return next;
+    });
+  });
+
   // Bot LLM stopped
   useRTVIClientEvent(RTVIEvent.BotLlmStopped, () => {
     console.log("BotLlmEnded");
     setMessages((prev) => {
       const next = [...prev];
-      const lastBotMsgIndex = next
-        .slice()
-        .reverse()
-        .findIndex((m) => m.role === "bot");
-      const actualIndex = lastBotMsgIndex >= 0 ? next.length - 1 - lastBotMsgIndex : -1;
+      const lastBotMsgIndex = findLastBotMessageIndex(next);
 
-      if (actualIndex >= 0 && next[actualIndex].streaming) {
-        next[actualIndex] = {
-          ...next[actualIndex],
+      if (lastBotMsgIndex >= 0 && next[lastBotMsgIndex].streaming) {
+        next[lastBotMsgIndex] = {
+          ...next[lastBotMsgIndex],
           streaming: false,
-          timestamp: next[actualIndex].timestamp || new Date(),
+          timestamp: next[lastBotMsgIndex].timestamp || new Date(),
         };
       }
       currentStreamingBotMessageIdRef.current = null;
@@ -258,4 +294,3 @@ export default function usePipecatChatEvents(
     });
   });
 }
-

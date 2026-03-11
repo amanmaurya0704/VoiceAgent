@@ -16,8 +16,8 @@ from app.config import settings
 
 router = APIRouter()
 
-@router.post("/test-upload")
-async def test_upload(files: List[UploadFile] = File(...)):
+@router.post("/test-upload/")
+async def test_upload(files : List[UploadFile]= File(...)):
     return {"count": len(files)}
 
 @router.post("/", response_model=Equipment, status_code=status.HTTP_201_CREATED)

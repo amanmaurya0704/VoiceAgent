@@ -55,14 +55,18 @@ class TextCaptureProcessor(FrameProcessor):
         if isinstance(frame, LLMMessagesAppendFrame):
             for message in frame.messages:
                 if message.get("role") == "user":
-                    await self.push_frame(
-                        TranscriptionFrame(
-                            text=message.get('content'),
-                            user_id="agent",
-                            timestamp=datetime.now().isoformat(),
-                            language=Language.EN_IN
+                    content = message.get('content')
+                    if isinstance(content, list):
+                        content = " ".join(p.get("text", "") for p in content if isinstance(p, dict))
+                    if content:
+                        await self.push_frame(
+                            TranscriptionFrame(
+                                text=content,
+                                user_id="agent",
+                                timestamp=datetime.now().isoformat(),
+                                language=Language.EN_IN
+                            )
                         )
-                    )
         await self.push_frame(frame, direction)
 
 
@@ -195,10 +199,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
 
     pipeline = Pipeline([
         transport.input(),
-        rtvi,  # RTVI processor
-        TextCaptureProcessor(),
         stt,
+        rtvi,  # RTVI processor — must be after STT so its output frames reach transport.output() cleanly
         context_aggregator.user(),  # User responses
+        TextCaptureProcessor(),
         llm,  # LLM
         tts, # TTS
         transport.output(),  # Transport bot output
@@ -221,13 +225,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments):
     )
 
 
-    @rtvi.event_handler("on_client_ready")
-    async def on_client_ready(rtvi):
-        await rtvi.set_bot_ready()
-
     @transport.event_handler("on_client_connected")
     async def on_client_connected(transport, client):
         logger.info(f"Client connected")
+        await rtvi.set_bot_ready()
         messages.append({"role": "system", "content": "Say hello and briefly introduce yourself."})
         await task.queue_frames([LLMRunFrame()])
 

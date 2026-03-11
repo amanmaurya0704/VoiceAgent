@@ -95,7 +95,7 @@ class RAGService:
 
             try:
                 logger.debug(f"Executing vector search with index: {self.index_name}")
-                cursor = collection.aggregate(pipeline)
+                cursor = await collection.aggregate(pipeline)
                 results = await cursor.to_list(length=k)
                 logger.info(f"Retrieved {len(results)} results from vector search")
             except Exception as e:

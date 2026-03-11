@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     GROQ_BASE_URL: str = "https://api.groq.com/openai/v1"
 
     GOOGLE_API_KEY: str
-    EMBEDDING_MODEL: str = "models/text-embedding-004"
+    EMBEDDING_MODEL: str = "gemini-embedding-001"
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 250
     VECTOR_INDEX_NAME: str = "vector_index"

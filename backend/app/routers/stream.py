@@ -76,7 +76,7 @@ async def bot_connect(request: Request) -> Dict[str, Any]:
     else:
         ws_scheme="ws"
 
-    ws_url = f"{ws_scheme}://{host}/api/v1/stream/ws/{equipment_id}"
+    ws_url = f"{ws_scheme}://{host}/api/stream/ws/{equipment_id}"
 
     logger.info(f"Generated WebSocket URL: {ws_url} (scheme: {scheme}, host: {host})")
 

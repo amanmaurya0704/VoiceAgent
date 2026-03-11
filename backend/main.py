@@ -40,7 +40,8 @@ else:
     origins = [
         "http://localhost:5173",
         "http://localhost:3000",
-        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://localhost:5174/"
         "http://127.0.0.1:3000",
         "http://frontend:80",  # Docker internal network
         "http://proj3-frontend:80",  # Docker container name
@@ -64,8 +65,8 @@ app.add_middleware(
 )
 
 
-app.include_router(equipment.router, prefix="/api/v1/equipment", tags=["Equipment"])
-app.include_router(stream.router, prefix="/api/v1/stream", tags=["Stream"])
+app.include_router(equipment.router, prefix="/api/equipment", tags=["Equipment"])
+app.include_router(stream.router, prefix="/api/stream", tags=["Stream"])
 
 @app.get("/")
 def read_root():
